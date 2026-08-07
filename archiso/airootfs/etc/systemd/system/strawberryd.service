@@ -1,0 +1,20 @@
+[Unit]
+Description=Strawberry OS system daemon
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/strawberryd
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/etc/strawberry /var/lib/strawberry
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

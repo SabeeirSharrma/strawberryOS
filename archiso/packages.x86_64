@@ -1,0 +1,51 @@
+# Strawberry OS — headless ISO package list
+# Minimal: no desktop, no bloat. Just what a mining rig needs to boot and run.
+
+# --- Base system (required for boot) ---
+base
+mkinitcpio
+mkinitcpio-archiso
+mkinitcpio-nfs-utils
+syslinux
+linux
+linux-firmware
+grub
+grub-btrfs
+btrfs-progs
+sudo
+arch-install-scripts
+nbd
+
+# --- Boot essentials ---
+efibootmgr
+amd-ucode
+
+# --- Networking ---
+networkmanager
+openssh
+nmap
+dhcpcd
+
+# --- Storage / filesystem ---
+dosfstools
+gdisk
+parted
+e2fsprogs
+
+# --- System utilities ---
+nano
+vim
+htop
+lm_sensors
+pciutils
+usbutils
+ethtool
+rsync
+curl
+wget
+jq
+
+# --- Build essentials (for building strawberryd from source on-device) ---
+base-devel
+rust
+cargo

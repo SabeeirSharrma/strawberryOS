@@ -1,0 +1,265 @@
+SOURCE-AVAILABLE RESTRICTIVE LICENSE
+
+Version 1.0
+
+Copyright © 2026 Sabeeir Sharrma.
+
+This Source-Available Restrictive License (the “License”) governs [SOFTWARE NAME], including its source code, object code, documentation, configuration files, examples, and related materials (collectively, the “Licensed Work”).
+
+1. Definitions
+
+1.1 “Authorized Use”
+
+“Authorized Use” means:
+
+(a) personal use by an individual;
+
+(b) noncommercial internal use by an individual or entity;
+
+(c) testing, evaluation, research, security review, education, and development that does not provide live services to third parties or generate commercial revenue; and
+
+(d) use expressly authorized in writing by Licensor.
+
+1.2 “Change Date”
+
+“Change Date” means the date five years after the first public release of the applicable version of the Licensed Work by Licensor.
+
+1.3 “Change License”
+
+“Change License” means the license identified by Licensor for the relevant version of the Licensed Work, provided that the Change License may not be:
+
+(a) the Business Source License, commonly known as the BSL;
+
+(b) this License; or
+
+(c) another license that preserves the restrictions in this License on copying, redistribution, hosting, or Commercial Use, unless that license is an official license published by the PolyForm Project.
+
+If Licensor has not identified a different Change License for a version, the Change License will be [INSERT LICENSE NAME AND VERSION].
+
+1.4 “Commercial Use”
+
+“Commercial Use” means use of the Licensed Work:
+
+(a) to provide goods or services for compensation;
+
+(b) in connection with revenue-generating operations;
+
+(c) to provide a product, platform, hosted service, managed service, or application to a third party; or
+
+(d) primarily for commercial advantage or monetary compensation.
+
+1.5 “Distribution”
+
+“Distribution” means making the Licensed Work, a copy of it, or a modified version available to another person or entity by sale, transfer, download, publication, hosting, delivery, sublicense, or any other means.
+
+1.6 “Hosting Service”
+
+“Hosting Service” means a service through which a person or entity makes the Licensed Work or its functionality available to a third party, including a software-as-a-service, platform-as-a-service, managed-service, application-service, remote-computing, or hosted-development service.
+
+1.7 “Licensor”
+
+“Licensor” means [LEGAL NAME OF LICENSOR].
+
+1.8 “You”
+
+“You” means any individual or legal entity exercising rights under this License.
+
+2. Source Availability
+
+Licensor may make the source code available for inspection, study, testing, and review.
+
+Source availability does not mean that the Licensed Work is offered under an unrestricted open-source license. Before the Change Date, You may not copy, redistribute, publish, sublicense, host, or commercially use the Licensed Work except as expressly permitted by this License.
+
+3. Limited Copyright License
+
+Subject to this License, Licensor grants You a worldwide, non-exclusive, royalty-free, revocable license to:
+
+(a) inspect and study the source code;
+
+(b) make copies technically necessary to download, install, execute, test, or use the Licensed Work for Authorized Use;
+
+(c) modify the Licensed Work for personal use, testing, research, evaluation, security review, education, or noncommercial internal use; and
+
+(d) use the unmodified or modified Licensed Work for Authorized Use.
+
+All rights not expressly granted by this License are reserved by Licensor.
+
+This License does not transfer ownership of the Licensed Work or grant a general right to reproduce, distribute, publish, sublicense, sell, or commercially exploit it.
+
+4. Attribution and Notices
+
+When You copy, modify, install, or use the Licensed Work under this License, You must preserve all copyright, license, attribution, and disclaimer notices included with it.
+
+Any authorized copy or distribution must prominently identify:
+
+(a) the original Licensor;
+
+(b) the Licensed Work;
+
+(c) the applicable version; and
+
+(d) the fact that the copy or modified version is governed by this License.
+
+You may not remove, conceal, or alter those notices.
+
+5. Prohibited Activities Before the Change Date
+
+Before the Change Date, You must not, directly or indirectly:
+
+(a) distribute, publish, sell, transfer, sublicense, rent, lease, or otherwise provide the Licensed Work to another person or entity without Licensor’s prior written authorization;
+
+(b) provide a Hosting Service using the Licensed Work without Licensor’s prior written authorization;
+
+(c) use the Licensed Work for Commercial Use;
+
+(d) make the Licensed Work available as a product, platform, application, service, or downloadable package;
+
+(e) create or maintain a public fork, public repository, redistributable branch, or publicly available derivative of the Licensed Work;
+
+(f) create a product or service that is substantially similar to, or substitutes for, the Licensed Work by incorporating, adapting, or exposing its principal functionality;
+
+(g) remove or alter any attribution, copyright, license, or proprietary notice; or
+
+(h) represent that the Licensed Work is available under an unrestricted open-source license before the Change Date.
+
+A person who receives a copy may not redistribute it merely because the copy was lawfully obtained. Redistribution requires separate written authorization from Licensor.
+
+6. Authorized Service and Application Integrations
+
+This Section does not prohibit the following activities, provided that they do not independently constitute unauthorized Distribution or Commercial Use:
+
+(a) remote access to functionality operated directly by Licensor or by a person expressly authorized by Licensor;
+
+(b) use of the Licensed Work as an internal library or component of a larger application, provided that:
+
+(i) the larger application provides substantial, independent functionality and value distinct from the Licensed Work; and
+
+(ii) the principal functionality or primary commercial value of the larger application is not derived from the Licensed Work;
+
+(c) use of the Licensed Work by an application where it supplies functionality reasonably necessary for that application’s operation, provided that the application does not expose, redistribute, or offer the Licensed Work as a standalone product or service; or
+
+(d) any other integration expressly authorized in writing by Licensor.
+
+This Section does not authorize operation of the Licensed Work as a standalone Hosting Service or provision of substantially the same functionality to third parties.
+
+7. Private Modifications and No Forking
+
+You may create private modifications for Authorized Use.
+
+Before the Change Date, You must not publish, distribute, sublicense, sell, or otherwise make those modifications available to another person or entity without Licensor’s prior written authorization.
+
+A “fork” includes a publicly available copy, modified version, repository, branch, package, or successor project that incorporates or derives from the Licensed Work.
+
+This Section does not prohibit:
+
+(a) private modifications retained within Your organization;
+
+(b) internal backups reasonably necessary for Authorized Use; or
+
+(c) a distribution or fork authorized in writing by Licensor.
+
+8. Authorization
+
+Licensor may authorize Distribution, Commercial Use, Hosting Services, or other restricted activities by separate written agreement.
+
+Unless the authorization states otherwise, it is limited to the identified recipient, version, activity, and period.
+
+9. Change Date
+
+On and after the Change Date, the applicable version of the Licensed Work will be governed by its Change License.
+
+The Change License applies only to the version for which the Change Date has occurred. Each later version may have a separate Change Date and Change License.
+
+After the Change Date, Licensor may continue distributing the same version under this License or another license, but may not retroactively remove rights already vested under the Change License.
+
+10. Contributions
+
+Unless Licensor agrees otherwise in writing, by submitting a contribution, You grant Licensor a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright and patent license to reproduce, prepare derivative works of, publicly display, publicly perform, sublicense, distribute, and commercialize the contribution in any form and under any licensing terms Licensor chooses.
+
+You represent that:
+
+(a) You have the right to provide the contribution;
+
+(b) the contribution does not knowingly infringe a third party’s rights; and
+
+(c) the contribution is not subject to terms conflicting with this License.
+
+11. Patent Rights
+
+Subject to the terms and conditions of this License, Licensor grants You a perpetual, worldwide, non-exclusive, no-charge, royalty-free, revocable patent license to make, have made, use, offer to sell, sell, import, and otherwise transfer the Licensed Work, solely to the extent necessary to exercise the rights granted in Section 3 for Authorized Use.
+
+This patent license does not extend to Commercial Use, Hosting Services, unauthorized Distribution, or activities prohibited by Section 5.
+
+You retain any patent rights You independently possess, but You may not represent that Licensor has granted a broader patent license than expressly stated in this Section.
+
+12. Trademarks
+
+This License does not grant any right to use Licensor’s trademarks, service marks, trade names, logos, or branding.
+
+You may identify the Licensed Work factually, but may not suggest Licensor’s endorsement, sponsorship, or affiliation.
+
+13. Third-Party Materials
+
+The Licensed Work may contain or depend on materials governed by third-party license terms. Those materials are not relicensed under this License.
+
+You are responsible for complying with applicable third-party terms. Rights that cannot lawfully be restricted remain unaffected.
+
+14. Termination
+
+This License terminates automatically upon a material breach.
+
+If the breach is curable, Licensor may provide written notice and thirty days to cure. If You cure within that period, the License will be reinstated unless Licensor states otherwise in writing.
+
+Upon termination, You must cease exercising rights granted by this License and stop unauthorized use, copying, Distribution, Commercial Use, and Hosting Services.
+
+Termination does not affect rights irrevocably vested under the Change License after the applicable Change Date.
+
+15. Disclaimer of Warranty
+
+THE LICENSED WORK IS PROVIDED “AS IS” AND “AS AVAILABLE.” TO THE MAXIMUM EXTENT PERMITTED BY LAW, LICENSOR DISCLAIMS ALL WARRANTIES, EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING WARRANTIES OF TITLE, MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, ACCURACY, AND UNINTERRUPTED OR ERROR-FREE OPERATION.
+
+16. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, LICENSOR WILL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, OR FOR LOSS OF PROFITS, REVENUE, BUSINESS, DATA, GOODWILL, OR ANTICIPATED SAVINGS.
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, LICENSOR’S TOTAL AGGREGATE LIABILITY ARISING OUT OF OR RELATING TO THIS LICENSE OR THE LICENSED WORK WILL NOT EXCEED $10.
+
+Nothing excludes or limits liability that cannot lawfully be excluded or limited.
+
+17. Governing Law and Courts
+
+This License is governed by the laws of India.
+
+Subject to courts whose jurisdiction cannot lawfully be excluded, the courts located in [CITY, STATE], India, will have exclusive jurisdiction over disputes arising out of or relating to this License.
+
+Nothing in this Section:
+
+(a) confers jurisdiction on a court lacking subject-matter or territorial jurisdiction;
+
+(b) excludes mandatory appellate, supervisory, constitutional, or statutory jurisdiction;
+
+(c) prevents urgent interim relief from a court of competent jurisdiction; or
+
+(d) treats an ordinary software-license dispute as a consumer dispute where statutory consumer jurisdiction does not apply.
+
+18. Severability and Waiver
+
+If any provision is held invalid or unenforceable, it will be modified to the minimum extent necessary to make it enforceable, and the remaining provisions will remain effective.
+
+Failure to enforce a provision is not a waiver.
+
+19. Entire Agreement
+
+This License is the entire agreement concerning the Licensed Work and supersedes prior understandings concerning its subject matter, except for a separate written agreement signed by Licensor and You.
+
+20. License Notice
+
+Each copy must include:
+
+Licensed Work: StrawberryOS
+Version: Latest version number or version that is being used
+Licensor: Sabeeir Sharrma
+Initial Release Date: To be determined
+Change Date: 5 (FIVE) Years after initial release (v1.0.0)
+Change License: 
+Authorization Contact: sabeeir@mail.sabeeir.qd.je

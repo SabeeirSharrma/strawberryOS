@@ -1,0 +1,16 @@
+# Rust build artifacts
+strawberryd/target/
+
+# archiso build output
+archiso/out/
+
+# Editor/OS junk
+*.swp
+*.swo
+*~
+.DS_Store
+.vscode/
+.idea/
+
+# Keep spec.md out of the repo (local reference only)
+spec.md

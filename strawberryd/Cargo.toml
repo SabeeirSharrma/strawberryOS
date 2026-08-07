@@ -1,0 +1,20 @@
+[package]
+name = "strawberryd"
+version = "0.1.0"
+edition = "2021"
+description = "Strawberry OS system daemon"
+license = "MIT"
+
+[[bin]]
+name = "strawberryd"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dirs = "5"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
