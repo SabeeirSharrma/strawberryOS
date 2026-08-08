@@ -1,5 +1,7 @@
 # Strawberry OS
 
+![Splash](splash.png)
+
 **A minimal, zero-telemetry, Arch-based Linux distro purpose-built for cryptocurrency mining.**
 
 ## Vision
