@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# strawberry-cli — thin wrapper that talks to strawberryd over Unix socket
-# Phase 0: skeleton with subcommands stubbed out
+# strawberry-cli — talks to strawberryd over Unix socket
+# Forwards commands and prints responses.
 
 set -euo pipefail
 
@@ -13,17 +13,15 @@ Strawberry OS CLI
 Usage: strawberry-cli <command> [args]
 
 Commands:
-  status              Show daemon status
-  miner list          List installed miners
-  miner start <name>  Start a miner
-  miner stop <name>   Stop a miner
-  wallet list         List wallets
-  wallet new <coin>   Generate a new wallet
+  ping                  Ping the daemon
+  version               Show daemon version
+  status                Show daemon status
+  config show           Show current config
+  miner list            List installed miners
+  wallet list           List wallets
+  wallet new <coin>     Generate a new wallet (monero)
   wallet set <coin> <address>  Set an existing address
-  config show         Show current config
-  config reload       Reload config from disk
-  setup               Run the post-install wizard
-  update check        Check for system updates
+  help                  Show available commands
 
 Run 'strawberry-cli <command> --help' for more info on a command.
 EOF
@@ -34,39 +32,87 @@ cmd_status() {
         echo "strawberryd: running (socket: $SOCKET)"
     else
         echo "strawberryd: not running"
-        echo "Start it with: sudo systemctl start strawberryd"
+        echo "Start it with: systemctl start strawberryd"
         return 1
     fi
 }
 
+# Send a command to the daemon via the Unix socket
+send_cmd() {
+    local cmd="$1"
+    if [ ! -S "$SOCKET" ]; then
+        echo "Error: strawberryd is not running (socket not found: $SOCKET)" >&2
+        echo "Start it with: systemctl start strawberryd" >&2
+        exit 1
+    fi
+    (echo "$cmd"; sleep 10) | socat - UNIX-CONNECT:"$SOCKET" 2>/dev/null
+}
+
 case "${1:-}" in
+    ping)
+        send_cmd "ping"
+        ;;
+    version)
+        send_cmd "version"
+        ;;
     status)
         cmd_status
-        ;;
-    miner)
-        echo "Miner management — not yet implemented (Phase 0 skeleton)"
-        echo "  Subcommands: list, start, stop"
-        ;;
-    wallet)
-        echo "Wallet management — not yet implemented (Phase 1)"
-        echo "  Subcommands: list, new, set"
+        echo "---"
+        send_cmd "status"
         ;;
     config)
-        echo "Configuration — not yet implemented (Phase 1)"
-        echo "  Subcommands: show, reload"
+        case "${2:-}" in
+            show)
+                send_cmd "config show"
+                ;;
+            *)
+                echo "Usage: strawberry-cli config show" >&2
+                exit 1
+                ;;
+        esac
         ;;
-    setup)
-        echo "Post-install wizard — not yet implemented (Phase 0+)"
+    miner)
+        case "${2:-}" in
+            list)
+                send_cmd "miner list"
+                ;;
+            *)
+                echo "Usage: strawberry-cli miner list" >&2
+                exit 1
+                ;;
+        esac
         ;;
-    update)
-        echo "Update system — not yet implemented (Phase 1+)"
+    wallet)
+        case "${2:-}" in
+            list)
+                send_cmd "wallet list"
+                ;;
+            new)
+                if [ -z "${3:-}" ]; then
+                    echo "Usage: strawberry-cli wallet new <coin>" >&2
+                    echo "Supported coins: monero" >&2
+                    exit 1
+                fi
+                send_cmd "wallet new $3"
+                ;;
+            set)
+                if [ -z "${3:-}" ] || [ -z "${4:-}" ]; then
+                    echo "Usage: strawberry-cli wallet set <coin> <address>" >&2
+                    exit 1
+                fi
+                send_cmd "wallet set $3 $4"
+                ;;
+            *)
+                echo "Usage: strawberry-cli wallet [list|new|set]" >&2
+                exit 1
+                ;;
+        esac
         ;;
     --help|-h|"")
         usage
         ;;
     *)
-        echo "Unknown command: $1" >&2
-        echo "Run 'strawberry-cli --help' for usage." >&2
-        exit 1
+        # Forward unknown commands to daemon
+        send_cmd "$*"
         ;;
 esac

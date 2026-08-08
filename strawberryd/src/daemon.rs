@@ -1,4 +1,5 @@
-use crate::config::GlobalConfig;
+use crate::config::{self, GlobalConfig};
+use crate::wallet::WalletManager;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
@@ -73,7 +74,7 @@ async fn handle_connection(stream: UnixStream, config: Arc<GlobalConfig>) -> any
 
 /// Process a single command and return a response string.
 fn process_command(cmd: &str, config: &GlobalConfig) -> String {
-    let parts: Vec<&str> = cmd.trim().splitn(3, ' ').collect();
+    let parts: Vec<&str> = cmd.trim().splitn(5, ' ').collect();
 
     match parts.as_slice() {
         ["ping"] => "pong".to_string(),
@@ -87,11 +88,13 @@ fn process_command(cmd: &str, config: &GlobalConfig) -> String {
             "miners: (none installed)\nTip: use the Strawberry Store to install miners.".to_string()
         }
         ["wallet", "list"] => {
-            if config.wallets.is_empty() {
+            // Reload config from disk to pick up any changes
+            let fresh_config = config::load().unwrap_or_else(|_| config.clone());
+            if fresh_config.wallets.is_empty() {
                 "wallets: (none configured)\nTip: use 'wallet set <coin> <address>' or the Store to add one.".to_string()
             } else {
                 let mut out = String::from("wallets:\n");
-                for (coin, addr) in &config.wallets {
+                for (coin, addr) in &fresh_config.wallets {
                     let truncated = if addr.len() >= 8 {
                         format!("{}...{}", &addr[..4], &addr[addr.len() - 4..])
                     } else {
@@ -102,9 +105,40 @@ fn process_command(cmd: &str, config: &GlobalConfig) -> String {
                 out
             }
         }
+        ["wallet", "new", coin] => {
+            let wm = WalletManager::new(config.storage.data_dir.clone());
+            match wm.generate(coin) {
+                Ok((address, seed)) => {
+                    // Auto-save the address to config
+                    let mut cfg = config.clone();
+                    cfg.wallets.insert(coin.to_string(), address.clone());
+                    let _ = config::save(&cfg);
+                    format!(
+                        "New {} wallet generated!\nAddress: {}\nSeed: {}\n\nIMPORTANT: Write down the seed and store it safely. It cannot be recovered.",
+                        coin, address, seed
+                    )
+                }
+                Err(e) => format!("Failed to generate wallet: {}", e),
+            }
+        }
+        ["wallet", "set", coin, address] => {
+            let wm = WalletManager::new(config.storage.data_dir.clone());
+            match wm.set_address(coin, address) {
+                Ok(()) => {
+                    // Persist to config file
+                    let mut cfg = config.clone();
+                    cfg.wallets.insert(coin.to_string(), address.to_string());
+                    if let Err(e) = config::save(&cfg) {
+                        format!("Address set but failed to save config: {}", e)
+                    } else {
+                        format!("{} address set to: {}", coin, address)
+                    }
+                }
+                Err(e) => format!("Failed to set address: {}", e),
+            }
+        }
         ["help"] => {
-            "Available commands: ping, version, status, config show, miner list, wallet list, help"
-                .to_string()
+            "Available commands:\n  ping\n  version\n  status\n  config show\n  miner list\n  wallet list\n  wallet new <coin>\n  wallet set <coin> <address>\n  help".to_string()
         }
         _ => format!(
             "Unknown command: {}\nType 'help' for available commands.",

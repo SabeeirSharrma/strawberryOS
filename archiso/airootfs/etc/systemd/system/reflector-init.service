@@ -1,0 +1,14 @@
+[Unit]
+Description=Optimize pacman mirrors with reflector
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/strawberry/.mirror-optimized
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/reflector --latest 10 --sort rate --protocol https --save /etc/pacman.d/mirrorlist
+ExecStartPost=/bin/touch /var/lib/strawberry/.mirror-optimized
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

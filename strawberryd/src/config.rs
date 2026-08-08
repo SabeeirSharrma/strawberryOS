@@ -1,11 +1,11 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Default config path
 const GLOBAL_CONFIG: &str = "/etc/strawberry/global.toml";
 
 /// Global configuration — loaded from /etc/strawberry/global.toml
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct GlobalConfig {
     #[serde(default)]
     pub general: GeneralConfig,
@@ -19,7 +19,7 @@ pub struct GlobalConfig {
     pub pools: std::collections::HashMap<String, PoolConfig>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct GeneralConfig {
     pub telemetry: bool,
     pub log_level: String,
@@ -34,7 +34,7 @@ impl Default for GeneralConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct MiningConfig {
     pub default_algo: String,
     pub power_limit: u32,
@@ -51,7 +51,7 @@ impl Default for MiningConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct StorageConfig {
     pub data_dir: PathBuf,
     pub log_dir: PathBuf,
@@ -68,7 +68,7 @@ impl Default for StorageConfig {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct PoolConfig {
     pub address: String,
     pub port: u16,
@@ -101,4 +101,13 @@ pub fn load() -> anyhow::Result<GlobalConfig> {
     }
 
     Ok(config)
+}
+
+/// Save configuration to disk.
+pub fn save(config: &GlobalConfig) -> anyhow::Result<()> {
+    let path = config_path();
+    let content = toml::to_string_pretty(config)?;
+    std::fs::write(&path, content)?;
+    tracing::info!("Config saved to {}", path.display());
+    Ok(())
 }

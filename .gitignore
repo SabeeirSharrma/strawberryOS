@@ -4,6 +4,13 @@ strawberryd/target/
 # archiso build output
 archiso/out/
 
+# Docker
+Dockerfile
+.docker/
+
+# VM disk images
+vm/
+
 # Editor/OS junk
 *.swp
 *.swo
@@ -11,6 +18,10 @@ archiso/out/
 .DS_Store
 .vscode/
 .idea/
+*.kate-swp
 
 # Keep spec.md out of the repo (local reference only)
 spec.md
+
+# Build temp
+/tmp/strawberry-build/

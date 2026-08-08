@@ -1,5 +1,6 @@
 mod config;
 mod daemon;
+mod wallet;
 
 use clap::{Parser, Subcommand};
 use tracing::info;

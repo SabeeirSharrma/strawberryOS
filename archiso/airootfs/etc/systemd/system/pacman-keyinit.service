@@ -1,0 +1,13 @@
+[Unit]
+Description=Initialize pacman keyring
+After=polkit.service
+Before=packagekit.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/pacman-key --init
+ExecStart=/usr/bin/pacman-key --populate archlinux
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

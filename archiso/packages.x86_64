@@ -44,6 +44,11 @@ rsync
 curl
 wget
 jq
+reflector
+socat
+
+# --- Mining dependencies ---
+monero
 
 # --- Build essentials (for building strawberryd from source on-device) ---
 base-devel
