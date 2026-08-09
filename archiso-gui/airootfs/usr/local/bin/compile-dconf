@@ -1,0 +1,3 @@
+#!/bin/bash
+# Compile dconf database for default wallpaper
+dconf compile /etc/dconf/db/local /etc/dconf/db/local.d

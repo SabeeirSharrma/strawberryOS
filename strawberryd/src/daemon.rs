@@ -1,4 +1,5 @@
 use crate::config::{self, GlobalConfig};
+use crate::pool;
 use crate::wallet::WalletManager;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -64,7 +65,7 @@ async fn handle_connection(stream: UnixStream, config: Arc<GlobalConfig>) -> any
         .await?;
 
     while let Some(line) = lines.next_line().await? {
-        let response = process_command(&line, &config);
+        let response = process_command(&line, &config).await;
         writer_half.write_all(response.as_bytes()).await?;
         writer_half.write_all(b"\n").await?;
     }
@@ -73,7 +74,7 @@ async fn handle_connection(stream: UnixStream, config: Arc<GlobalConfig>) -> any
 }
 
 /// Process a single command and return a response string.
-fn process_command(cmd: &str, config: &GlobalConfig) -> String {
+async fn process_command(cmd: &str, config: &GlobalConfig) -> String {
     let parts: Vec<&str> = cmd.trim().splitn(5, ' ').collect();
 
     match parts.as_slice() {
@@ -85,7 +86,27 @@ fn process_command(cmd: &str, config: &GlobalConfig) -> String {
         ),
         ["config", "show"] => format!("{:#?}", config),
         ["miner", "list"] => {
-            "miners: (none installed)\nTip: use the Strawberry Store to install miners.".to_string()
+            // Check for installed miners in common paths
+            let miner_paths = ["/usr/bin", "/usr/local/bin"];
+            let mut found = Vec::new();
+            for dir in &miner_paths {
+                if let Ok(entries) = std::fs::read_dir(dir) {
+                    for entry in entries.flatten() {
+                        let name = entry.file_name().to_string_lossy().to_string();
+                        if name.starts_with("xmrig") || name.starts_with("t-rex")
+                            || name.starts_with("lolminer") || name.starts_with("gminer")
+                            || name.starts_with("srbminer") || name.contains("cpuminer")
+                        {
+                            found.push(name);
+                        }
+                    }
+                }
+            }
+            if found.is_empty() {
+                "miners: (none installed)\nTip: use 'strawberry-cli store install <miner>' or the Store app.".to_string()
+            } else {
+                format!("installed miners:\n{}", found.iter().map(|m| format!("  {}", m)).collect::<Vec<_>>().join("\n"))
+            }
         }
         ["wallet", "list"] => {
             // Reload config from disk to pick up any changes
@@ -137,8 +158,213 @@ fn process_command(cmd: &str, config: &GlobalConfig) -> String {
                 Err(e) => format!("Failed to set address: {}", e),
             }
         }
+        ["pool", "list"] => {
+            let pools = pool::built_in_pools();
+            let mut out = String::from("Pool Directory:\n");
+            for p in &pools {
+                out.push_str(&format!(
+                    "  {} ({}:{}) [{}] fee={}%\n    Coins: {}\n    {}\n",
+                    p.name, p.address, p.port,
+                    if p.tls { "TLS" } else { "no-TLS" },
+                    p.fee_pct,
+                    p.coins.join(", "),
+                    p.notes
+                ));
+            }
+            out
+        }
+        ["pool", "list", coin] => {
+            let all_pools = pool::built_in_pools();
+            let pools = pool::pools_for_coin(&all_pools, coin);
+            if pools.is_empty() {
+                format!("No pools found for {}", coin)
+            } else {
+                let mut out = format!("Pools for {}:\n", coin);
+                for p in &pools {
+                    out.push_str(&format!(
+                        "  {} ({}:{}) fee={}%\n",
+                        p.name, p.address, p.port, p.fee_pct
+                    ));
+                }
+                out
+            }
+        }
+        ["pool", "ping", name] => {
+            let pools = pool::pool_directory();
+            match pools.get(*name) {
+                Some(entry) => {
+                    let result = pool::measure_latency(&entry.address, entry.port).await;
+                    if result.reachable {
+                        format!(
+                            "{} ({}:{}) — {}ms",
+                            entry.name, entry.address, entry.port,
+                            result.latency_ms.unwrap_or(0)
+                        )
+                    } else {
+                        format!("{} ({}:{}) — unreachable", entry.name, entry.address, entry.port)
+                    }
+                }
+                None => format!("Unknown pool: {}", name),
+            }
+        }
+        ["pool", "set", coin, name] => {
+            let pools = pool::pool_directory();
+            match pools.get(*name) {
+                Some(entry) => {
+                    let mut cfg = config.clone();
+                    cfg.pools.insert(
+                        coin.to_string(),
+                        config::PoolConfig {
+                            address: entry.address.clone(),
+                            port: entry.port,
+                            tls: entry.tls,
+                            coin: coin.to_string(),
+                            fee_pct: entry.fee_pct,
+                        },
+                    );
+                    if let Err(e) = config::save(&cfg) {
+                        format!("Pool set but failed to save config: {}", e)
+                    } else {
+                        format!("{} pool set to {} ({}:{})", coin, entry.name, entry.address, entry.port)
+                    }
+                }
+                None => format!("Unknown pool: {}", name),
+            }
+        }
+        ["pool", "set", coin, addr, port] => {
+            let mut cfg = config.clone();
+            cfg.pools.insert(
+                coin.to_string(),
+                config::PoolConfig {
+                    address: addr.to_string(),
+                    port: port.parse().unwrap_or(3333),
+                    tls: false,
+                    coin: coin.to_string(),
+                    fee_pct: 0.0,
+                },
+            );
+            if let Err(e) = config::save(&cfg) {
+                format!("Pool set but failed to save config: {}", e)
+            } else {
+                format!("{} pool set to {}:{}", coin, addr, port)
+            }
+        }
+        ["store", "install", "miner", id] => {
+            // In a real implementation, this would download and install the miner binary
+            // For now, acknowledge the request
+            format!("Installing miner '{}'... (placeholder — download system not yet implemented)", id)
+        }
+        ["store", "uninstall", "miner", id] => {
+            format!("Uninstalling miner '{}'... (placeholder — uninstall system not yet implemented)", id)
+        }
+        ["store", "list", "miners"] => {
+            // Load catalog and list miners
+            let catalog_path = std::path::Path::new("/etc/strawberry/store-catalog.json");
+            match std::fs::read_to_string(catalog_path) {
+                Ok(content) => {
+                    if let Ok(catalog) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(miners) = catalog.get("miners").and_then(|m| m.as_array()) {
+                            let mut out = String::from("Available miners:\n");
+                            for m in miners {
+                                let name = m.get("name").and_then(|n| n.as_str()).unwrap_or("?");
+                                let ver = m.get("version").and_then(|v| v.as_str()).unwrap_or("?");
+                                let hw: Vec<String> = m.get("hardware").and_then(|h| h.as_array())
+                                    .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_uppercase())).collect())
+                                    .unwrap_or_default();
+                                out.push_str(&format!("  {} v{} [{}]\n", name, ver, hw.join(", ")));
+                            }
+                            out
+                        } else {
+                            "No miners in catalog".to_string()
+                        }
+                    } else {
+                        "Failed to parse catalog".to_string()
+                    }
+                }
+                Err(e) => format!("Catalog not found: {}", e),
+            }
+        }
+        ["store", "list", "wallets"] => {
+            let catalog_path = std::path::Path::new("/etc/strawberry/store-catalog.json");
+            match std::fs::read_to_string(catalog_path) {
+                Ok(content) => {
+                    if let Ok(catalog) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(wallets) = catalog.get("wallets").and_then(|w| w.as_array()) {
+                            let mut out = String::from("Available wallets:\n");
+                            for w in wallets {
+                                let name = w.get("name").and_then(|n| n.as_str()).unwrap_or("?");
+                                let coin = w.get("coin").and_then(|c| c.as_str()).unwrap_or("?");
+                                out.push_str(&format!("  {} ({})\n", name, coin));
+                            }
+                            out
+                        } else {
+                            "No wallets in catalog".to_string()
+                        }
+                    } else {
+                        "Failed to parse catalog".to_string()
+                    }
+                }
+                Err(e) => format!("Catalog not found: {}", e),
+            }
+        }
+        ["store", "list", "pools"] => {
+            let catalog_path = std::path::Path::new("/etc/strawberry/store-catalog.json");
+            match std::fs::read_to_string(catalog_path) {
+                Ok(content) => {
+                    if let Ok(catalog) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(pools) = catalog.get("pools").and_then(|p| p.as_array()) {
+                            let mut out = String::from("Available pools:\n");
+                            for p in pools {
+                                let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("?");
+                                let coins: Vec<String> = p.get("coins").and_then(|c| c.as_array())
+                                    .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                                    .unwrap_or_default();
+                                out.push_str(&format!("  {} [{}]\n", name, coins.join(", ")));
+                            }
+                            out
+                        } else {
+                            "No pools in catalog".to_string()
+                        }
+                    } else {
+                        "Failed to parse catalog".to_string()
+                    }
+                }
+                Err(e) => format!("Catalog not found: {}", e),
+            }
+        }
+        ["store", "update"] => {
+            // Fetch latest catalog from repo
+            let catalog_path = std::path::Path::new("/etc/strawberry/store-catalog.json");
+            let repo_url = match std::fs::read_to_string(catalog_path) {
+                Ok(content) => {
+                    serde_json::from_str::<serde_json::Value>(&content)
+                        .ok()
+                        .and_then(|c| c.get("repo_url").and_then(|u| u.as_str()).map(String::from))
+                        .unwrap_or_else(|| "https://sabeeirsharrma.github.io/strawberryOS/store".to_string())
+                }
+                Err(_) => "https://sabeeirsharrma.github.io/strawberryOS/store".to_string(),
+            };
+            let catalog_url = format!("{}/store-catalog.json", repo_url);
+            match std::process::Command::new("curl").args(["-sSf", "-o", "/tmp/store-catalog-new.json", &catalog_url]).output() {
+                Ok(output) if output.status.success() => {
+                    // Validate the new catalog
+                    match std::fs::read_to_string("/tmp/store-catalog-new.json") {
+                        Ok(new_content) => {
+                            if serde_json::from_str::<serde_json::Value>(&new_content).is_ok() {
+                                std::fs::copy("/tmp/store-catalog-new.json", catalog_path).ok();
+                                "Catalog updated successfully".to_string()
+                            } else {
+                                "Downloaded catalog is invalid — keeping current version".to_string()
+                            }
+                        }
+                        Err(e) => format!("Failed to read new catalog: {}", e),
+                    }
+                }
+                _ => format!("Failed to fetch catalog from {} — using bundled version", catalog_url),
+            }
+        }
         ["help"] => {
-            "Available commands:\n  ping\n  version\n  status\n  config show\n  miner list\n  wallet list\n  wallet new <coin>\n  wallet set <coin> <address>\n  help".to_string()
+            "Available commands:\n  ping\n  version\n  status\n  config show\n  miner list\n  wallet list\n  wallet new <coin>\n  wallet set <coin> <address>\n  pool list [coin]\n  pool ping <name>\n  pool set <coin> <name|address port>\n  store install <type> <id>\n  store uninstall <type> <id>\n  store list <type>\n  store update\n  help".to_string()
         }
         _ => format!(
             "Unknown command: {}\nType 'help' for available commands.",

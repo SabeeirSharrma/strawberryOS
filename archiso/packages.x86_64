@@ -52,5 +52,6 @@ monero
 
 # --- Build essentials (for building strawberryd from source on-device) ---
 base-devel
-rust
-cargo
+
+# --- Browser (for pool websites/docs) ---
+epiphany

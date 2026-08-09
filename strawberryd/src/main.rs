@@ -1,5 +1,6 @@
 mod config;
 mod daemon;
+mod pool;
 mod wallet;
 
 use clap::{Parser, Subcommand};

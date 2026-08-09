@@ -72,6 +72,12 @@ impl Default for StorageConfig {
 pub struct PoolConfig {
     pub address: String,
     pub port: u16,
+    #[serde(default)]
+    pub tls: bool,
+    #[serde(default)]
+    pub coin: String,
+    #[serde(default)]
+    pub fee_pct: f64,
 }
 
 /// Returns the path to the global config file.

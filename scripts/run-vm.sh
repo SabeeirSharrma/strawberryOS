@@ -1,28 +1,52 @@
 #!/usr/bin/env bash
 # run-vm.sh — Boot Strawberry OS ISO in a QEMU/KVM virtual machine.
 #
-# Usage: ./scripts/run-vm.sh [--install]
-#   --install  Boot into the installer (Calamares) instead of live env
+# Usage:
+#   ./scripts/run-vm.sh          # Boot headless ISO
+#   ./scripts/run-vm.sh --gui    # Boot GUI (Cinnamon) ISO
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-ISO_PATH=$(ls "$PROJECT_DIR"/archiso/out/*.iso 2>/dev/null | head -1)
 VM_DIR="$PROJECT_DIR/vm"
 DISK_PATH="$VM_DIR/strawberry.qcow2"
-MEMORY="4096"
-CPUS="4"
 EFI_VARS="$VM_DIR/OVMF_VARS.fd"
+
+# Parse flags
+GUI_MODE=false
+for arg in "$@"; do
+    case "$arg" in
+        --gui) GUI_MODE=true; shift ;;
+    esac
+done
+
+# Select ISO based on mode
+if [ "$GUI_MODE" = true ]; then
+    ISO_PATH=$(ls "$PROJECT_DIR"/archiso/out/strawberry-os-gui-*.iso 2>/dev/null | head -1)
+    MEMORY="8192"
+    MODE="GUI (Cinnamon Desktop)"
+else
+    ISO_PATH=$(ls "$PROJECT_DIR"/archiso/out/strawberry-os-2026.*.iso 2>/dev/null | head -1)
+    MEMORY="4096"
+    MODE="Headless (CLI)"
+fi
+
+CPUS="4"
 
 # Find ISO
 if [ -z "$ISO_PATH" ]; then
     echo "ERROR: No ISO found in archiso/out/"
-    echo "Run: sudo ./scripts/build-iso.sh"
+    if [ "$GUI_MODE" = true ]; then
+        echo "Run: sudo ./scripts/build-iso.sh --gui"
+    else
+        echo "Run: sudo ./scripts/build-iso.sh"
+    fi
     exit 1
 fi
 
 echo "=== Strawberry OS VM Launcher ==="
+echo "Mode:  $MODE"
 echo "ISO:   $ISO_PATH"
 echo "Disk:  $DISK_PATH"
 echo "RAM:   ${MEMORY}MB"
@@ -34,8 +58,8 @@ mkdir -p "$VM_DIR"
 
 # Create disk image if it doesn't exist (20GB qcow2)
 if [ ! -f "$DISK_PATH" ]; then
-    echo "Creating 20GB disk image..."
-    qemu-img create -f qcow2 "$DISK_PATH" 20G
+    echo "Creating 50GB disk image..."
+    qemu-img create -f qcow2 "$DISK_PATH" 50G
 fi
 
 # Copy OVMF vars for UEFI if not present
@@ -66,6 +90,11 @@ QEMU_ARGS=(
     -usb -device usb-tablet
 )
 
+# GUI mode gets more VRAM
+if [ "$GUI_MODE" = true ]; then
+    QEMU_ARGS+=(-device virtio-vga-gl -display gtk,gl=on)
+fi
+
 # Add EFI vars if available
 if [ -n "$EFI_VARS" ]; then
     QEMU_ARGS+=(-drive "if=pflash,format=raw,file=$EFI_VARS")
@@ -76,4 +105,4 @@ echo "  SSH forwarding: localhost:2222 -> VM:22"
 echo "  Press Ctrl+Alt+G to release mouse"
 echo ""
 
-exec qemu-system-x86_64 "${QEMU_ARGS[@]}" "$@"
+exec qemu-system-x86_64 "${QEMU_ARGS[@]}"

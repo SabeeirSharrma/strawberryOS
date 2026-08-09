@@ -1,0 +1,11 @@
+[Unit]
+Description=Compile dconf database for default wallpaper
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/compile-dconf
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

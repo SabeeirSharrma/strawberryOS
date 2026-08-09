@@ -1,0 +1,104 @@
+# Strawberry OS — GUI ISO package list
+# Cinnamon desktop, stripped to mining essentials.
+
+# --- Base system (same as headless) ---
+base
+mkinitcpio
+mkinitcpio-archiso
+mkinitcpio-nfs-utils
+syslinux
+linux
+linux-firmware
+grub
+grub-btrfs
+btrfs-progs
+sudo
+arch-install-scripts
+nbd
+
+# --- Boot essentials ---
+efibootmgr
+amd-ucode
+
+# --- Networking ---
+networkmanager
+openssh
+nmap
+dhcpcd
+
+# --- Storage / filesystem ---
+dosfstools
+gdisk
+parted
+e2fsprogs
+
+# --- System utilities ---
+nano
+vim
+htop
+lm_sensors
+pciutils
+usbutils
+ethtool
+rsync
+curl
+wget
+jq
+reflector
+socat
+
+# --- Mining ---
+monero
+
+# --- Cinnamon desktop (stripped) ---
+cinnamon
+cinnamon-control-center
+cinnamon-desktop
+cinnamon-menus
+cinnamon-screensaver
+cinnamon-session
+cinnamon-settings-daemon
+cinnamon-translations
+muffin
+nemo
+nemo-fileroller
+gnome-keyring
+xdg-desktop-portal-xapp
+
+# --- Display manager ---
+lightdm
+lightdm-gtk-greeter
+
+# --- Display server ---
+xorg-server
+xorg-xinit
+xorg-xrandr
+xorg-xsetroot
+
+# --- Lightweight browser (Epiphany/ GNOME Web) ---
+epiphany
+
+# --- Terminal emulator ---
+ghostty
+
+# --- GTK theme (matches Cinnamon) ---
+adwaita-icon-theme
+gtk3
+gtk4
+libadwaita
+
+# --- Python (for Strawberry Store) ---
+python
+python-gobject
+
+# --- Audio (minimal) ---
+pipewire
+pipewire-pulse
+wireplumber
+
+# --- Fonts ---
+noto-fonts
+ttf-liberation
+
+# --- Build essentials ---
+base-devel

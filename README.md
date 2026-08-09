@@ -20,7 +20,8 @@
 sudo pacman -S archiso
 
 # Build
-./scripts/build-iso.sh
+sudo ./scripts/build-iso.sh # FOR CLI ONLY MODE
+sudo ./scripts/build-iso.sh --gui # FOR GUI MODE
 ```
 
 ### Run strawberryd locally (for development)

@@ -20,4 +20,5 @@ file_permissions=(
   ["/etc/shadow"]="0:0:400"
   ["/usr/local/bin/strawberry-cli"]="0:0:755"
   ["/usr/local/bin/strawberryd"]="0:0:755"
+  ["/usr/local/bin/cpac"]="0:0:755"
 )

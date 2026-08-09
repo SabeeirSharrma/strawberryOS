@@ -1,0 +1,28 @@
+# Strawberry OS — global configuration
+# This file is the source of truth for system-wide defaults.
+# GUI edits this file and asks strawberryd to reload.
+# Power users can hand-edit directly.
+
+[general]
+telemetry = false          # Hardcoded off, not just a default
+log_level = "info"         # debug | info | warn | error
+
+[mining]
+default_algo = ""
+power_limit = 0            # 0 = no limit
+fan_curve = "auto"         # auto | manual
+
+[storage]
+data_dir = "/var/lib/strawberry"
+log_dir = "/var/log/strawberry"
+config_dir = "/etc/strawberry"
+
+[wallets]
+# Per-coin wallet addresses go here
+# Example:
+# xmr = "4<your-monero-address>"
+
+[pools]
+# Per-algo default pools
+# Example:
+# randomx = { address = "pool.example.com", port = 3333 }

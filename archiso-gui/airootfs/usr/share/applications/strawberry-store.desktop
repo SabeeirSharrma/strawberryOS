@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Strawberry Store
+Comment=Install miners, wallets, and configure pools
+Exec=strawberry-store
+Icon=preferences-system
+Terminal=false
+Type=Application
+Categories=System;Utility;
+Keywords=mining;crypto;wallet;pool;

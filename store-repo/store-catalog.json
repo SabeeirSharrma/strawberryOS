@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "repo_url": "https://sabeeirsharrma.github.io/strawberryOS/store",
+  "miners": [
+    {
+      "id": "xmrig",
+      "name": "XMRig",
+      "description": "High-performance RandomX/CryptoNight/Argon2 miner. Open source, no dev fee.",
+      "version": "6.21.0",
+      "algo": ["randomx", "cryptonight", "argon2"],
+      "hardware": ["cpu", "amd", "nvidia"],
+      "dev_fee_pct": 0.0,
+      "source": "https://github.com/xmrig/xmrig",
+      "license": "MIT",
+      "package": "xmrig",
+      "checksum": ""
+    },
+    {
+      "id": "t-rex",
+      "name": "T-Rex",
+      "description": "Fast NVIDIA GPU miner supporting Ethash, EtcHash, KawPow, Octopus and more.",
+      "version": "0.26.8",
+      "algo": ["ethash", "etchash", "kawpow", "octopus"],
+      "hardware": ["nvidia"],
+      "dev_fee_pct": 1.0,
+      "source": "https://github.com/trexcoin/T-Rex",
+      "license": "proprietary",
+      "package": "t-rex",
+      "checksum": ""
+    },
+    {
+      "id": "lolminer",
+      "name": "lolMiner",
+      "description": "Multi-algo GPU miner. AMD & NVIDIA. Ethash, Etchash, KawPow, Autolykos2, Equihash.",
+      "version": "1.76a",
+      "algo": ["ethash", "etchash", "kawpow", "autolykos2", "equihash"],
+      "hardware": ["amd", "nvidia"],
+      "dev_fee_pct": 0.7,
+      "source": "https://github.com/Lolliedieb/lolMiner-releases",
+      "license": "proprietary",
+      "package": "lolminer",
+      "checksum": ""
+    },
+    {
+      "id": "gminer",
+      "name": "GMiner",
+      "description": "High performance GPU miner. Wide algo support, low dev fee.",
+      "version": "3.44",
+      "algo": ["ethash", "etchash", "kawpow", "autolykos2", "equihash", "zhash"],
+      "hardware": ["nvidia", "amd"],
+      "dev_fee_pct": 0.6,
+      "source": "https://github.com/develsoftware/GMinerRelease",
+      "license": "proprietary",
+      "package": "gminer",
+      "checksum": ""
+    },
+    {
+      "id": "srbminer-multi",
+      "name": "SRBMiner Multi",
+      "description": "CPU & GPU multi-algo miner. RandomX, Ethash, KawPow and more.",
+      "version": "2.4.4",
+      "algo": ["randomx", "ethash", "etchash", "kawpow", "cryptonight"],
+      "hardware": ["cpu", "amd", "nvidia"],
+      "dev_fee_pct": 0.85,
+      "source": "https://github.com/doktor83/SRBMiner-Multi",
+      "license": "proprietary",
+      "package": "srbminer-multi",
+      "checksum": ""
+    },
+    {
+      "id": "cpuminer-multi",
+      "name": "cpuminer-multi",
+      "description": "CPU mining for RandomX, CryptoNight, Yescrypt and others. Open source.",
+      "version": "2.5.1",
+      "algo": ["randomx", "cryptonight", "yescrypt"],
+      "hardware": ["cpu"],
+      "dev_fee_pct": 0.0,
+      "source": "https://github.com/ponga-pool/cpuminer-multi",
+      "license": "GPL-3.0",
+      "package": "cpuminer-multi",
+      "checksum": ""
+    },
+    {
+      "id": "nanominer",
+      "name": "NanoMiner",
+      "description": "Multi-algo GPU/CPU miner by Nanopool. Ethash, KawPow, Autolykos2, RandomX.",
+      "version": "3.3.6",
+      "algo": ["ethash", "kawpow", "autolykos2", "randomx"],
+      "hardware": ["cpu", "amd", "nvidia"],
+      "dev_fee_pct": 1.0,
+      "source": "https://github.com/nanopool/nanominer",
+      "license": "proprietary",
+      "package": "nanominer",
+      "checksum": ""
+    },
+    {
+      "id": "teamredminer",
+      "name": "TeamRedMiner",
+      "description": "AMD GPU optimized miner. Ethash, KawPow, Autolykos2, CryptoNight.",
+      "version": "0.10.14",
+      "algo": ["ethash", "etchash", "kawpow", "autolykos2", "cryptonight"],
+      "hardware": ["amd"],
+      "dev_fee_pct": 0.75,
+      "source": "https://github.com/todxx/teamredminer",
+      "license": "proprietary",
+      "package": "teamredminer",
+      "checksum": ""
+    }
+  ],
+  "wallets": [
+    {
+      "id": "monero-wallet-cli",
+      "name": "Monero Wallet CLI",
+      "description": "Official Monero command-line wallet. Generate seeds, send/receive XMR.",
+      "coin": "monero",
+      "type": "cli",
+      "package": "monero",
+      "version": "0.18.3.4"
+    }
+  ],
+  "pools": [
+    {
+      "id": "p2pool",
+      "name": "P2Pool",
+      "description": "Decentralized mining pool for Monero. No registration, no fees, solo mining with pooled payouts.",
+      "coins": ["monero"],
+      "url": "https://p2pool.io",
+      "ports": {"p2pool": 3333, "p2pool-mini": 3334}
+    },
+    {
+      "id": "moneroocean",
+      "name": "MoneroOcean",
+      "description": "Auto algo-switching pool. Mines the most profitable algo, pays in XMR.",
+      "coins": ["monero"],
+      "url": "https://moneroocean.stream",
+      "ports": {"randomx": 10128, "cn": 10128}
+    },
+    {
+      "id": "supportxmr",
+      "name": "SupportXMR",
+      "description": "Long-running Monero pool. PPLNS, low minimum payout.",
+      "coins": ["monero"],
+      "url": "https://supportxmr.com",
+      "ports": {"randomx": 3333}
+    },
+    {
+      "id": "xmrpool",
+      "name": "XMRPool.eu",
+      "description": "EU-based Monero pool. PPLNS, TLS, no registration.",
+      "coins": ["monero"],
+      "url": "https://xmrpool.eu",
+      "ports": {"randomx": 9999}
+    },
+    {
+      "id": "flypool-zec",
+      "name": "Flypool Zcash",
+      "description": "Popular Equihash pool by Ethermine. TLS, PPLNS.",
+      "coins": ["zcash"],
+      "url": "https://zcash.flypool.org",
+      "ports": {"equihash": 4444}
+    },
+    {
+      "id": "flypool-rvn",
+      "name": "Flypool Ravencoin",
+      "description": "KawPow pool for Ravencoin. TLS, PPLNS.",
+      "coins": ["ravencoin"],
+      "url": "https://rvn.flypool.org",
+      "ports": {"kawpow": 4444}
+    },
+    {
+      "id": "nanopool-erg",
+      "name": "Nanopool ERG",
+      "description": "Autolykos2 pool for Ergo. Low fees, PPLNS.",
+      "coins": ["ergo"],
+      "url": "https://ergo.nanopool.org",
+      "ports": {"autolykos2": 11111}
+    },
+    {
+      "id": "herominers-erg",
+      "name": "HeroMiners ERG",
+      "description": "Ergo pool with low fees and global nodes.",
+      "coins": ["ergo"],
+      "url": "https://ergo.herominers.com",
+      "ports": {"autolykos2": 10250}
+    }
+  ]
+}
