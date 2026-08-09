@@ -6,6 +6,9 @@
 [general]
 telemetry = false          # Hardcoded off, not just a default
 log_level = "info"         # debug | info | warn | error
+catalog_url = "https://sabeeirsharrma.github.io/strawberryOS/store/store-catalog.json"
+catalog_cache = "/var/lib/strawberry/store-catalog.json"
+catalog_refresh_secs = 3600  # 1 hour
 
 [mining]
 default_algo = ""
@@ -23,6 +26,6 @@ config_dir = "/etc/strawberry"
 # xmr = "4<your-monero-address>"
 
 [pools]
-# Per-coin default pools
+# Per-algo default pools
 # Example:
-# monero = { address = "p2pool.io", port = 3333, tls = false, coin = "monero", fee_pct = 0.0 }
+# randomx = { address = "pool.example.com", port = 3333 }

@@ -4,24 +4,24 @@ Strawberry Store — App store for Strawberry OS
 Browse and install miners, wallets, and pool configs.
 """
 
+import base64
 import json
 import os
 import socket
-import subprocess
 import sys
-import threading
 
 import gi
 gi.require_version("Gtk", "4.0")
+gi.require_version("Gdk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 SOCKET_PATH = "/run/strawberryd.sock"
-CATALOG_PATH = "/etc/strawberry/store-catalog.json"
+CATALOG_CACHE = os.environ.get("STRAWBERRY_CATALOG_CACHE", "/var/lib/strawberry/store-catalog.json")
+CATALOG_BUNDLED = "/etc/strawberry/store-catalog.json"
 
 
 def send_daemon(cmd: str) -> str:
-    """Send a command to strawberryd via Unix socket."""
     try:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(10)
@@ -29,7 +29,6 @@ def send_daemon(cmd: str) -> str:
         sock.sendall((cmd + "\n").encode())
         data = sock.recv(65536).decode().strip()
         sock.close()
-        # Skip the banner line
         lines = data.split("\n")
         if lines and lines[0].startswith("strawberryd"):
             return "\n".join(lines[1:])
@@ -39,31 +38,60 @@ def send_daemon(cmd: str) -> str:
 
 
 def load_catalog() -> dict:
-    """Load the store catalog from disk."""
-    try:
-        with open(CATALOG_PATH) as f:
-            return json.load(f)
-    except Exception as e:
-        return {"miners": [], "wallets": [], "pools": []}
+    # Try daemon cache first (updated from remote)
+    for path in [CATALOG_CACHE, CATALOG_BUNDLED]:
+        try:
+            with open(path) as f:
+                data = json.load(f)
+                if data.get("miners") or data.get("wallets") or data.get("pools"):
+                    return data
+        except Exception:
+            continue
+    return {"miners": [], "wallets": [], "pools": []}
 
 
-# ──── Miner Card ────
+def logo_from_b64(b64: str, size: int = 48) -> Gtk.Picture:
+    """Create a Picture widget from a base64-encoded SVG."""
+    svg_bytes = base64.b64decode(b64)
+    texture = Gdk.Texture.new_from_bytes(GLib.Bytes.new(svg_bytes))
+    picture = Gtk.Picture.new_for_paintable(texture)
+    picture.set_size_request(size, size)
+    picture.set_content_fit(Gtk.ContentFit.CONTAIN)
+    return picture
 
-class MinerCard(Adw.NavigationPage):
-    """Detail page for a single miner."""
 
-    def __init__(self, miner: dict, **kwargs):
+def logo_from_b64_large(b64: str, size: int = 96) -> Gtk.Picture:
+    return logo_from_b64(b64, size)
+
+
+# ──── Detail Pages ────
+
+class MinerDetail(Adw.NavigationPage):
+    def __init__(self, miner: dict, toast_overlay: Adw.ToastOverlay, **kwargs):
         super().__init__(**kwargs)
-        self.miner = miner
         self.set_title(miner["name"])
+        self.set_tag(f"miner-{miner['id']}")
 
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=24, margin_bottom=24, margin_start=24, margin_end=24)
+        scroll = Gtk.ScrolledWindow()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12,
+                       margin_top=24, margin_bottom=24, margin_start=32, margin_end=32)
 
-        # Title
-        title = Gtk.Label(label=miner["name"])
-        title.add_css_class("title-1")
-        title.set_xalign(0)
-        box.append(title)
+        # Header row: logo + name
+        header = Gtk.Box(spacing=16, margin_bottom=12)
+        if miner.get("logo"):
+            header.append(logo_from_b64_large(miner["logo"], 96))
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        name = Gtk.Label(label=miner["name"])
+        name.add_css_class("title-1")
+        name.set_xalign(0)
+        title_box.append(name)
+        ver = Gtk.Label(label=f"v{miner.get('version', '?')}")
+        ver.set_xalign(0)
+        ver.add_css_class("dim-label")
+        title_box.append(ver)
+        header.append(title_box)
+        header.set_valign(Gtk.Align.CENTER)
+        box.append(header)
 
         # Description
         desc = Gtk.Label(label=miner["description"])
@@ -71,211 +99,306 @@ class MinerCard(Adw.NavigationPage):
         desc.set_wrap(True)
         box.append(desc)
 
-        # Details
-        details = Gtk.Grid(column_spacing=12, row_spacing=6, margin_top=12)
-        for i, (label, value) in enumerate([
-            ("Version", miner.get("version", "—")),
+        # Info grid
+        grid = Gtk.Grid(column_spacing=24, row_spacing=8, margin_top=12)
+        rows = [
             ("Algorithms", ", ".join(miner.get("algo", []))),
             ("Hardware", ", ".join(h.upper() for h in miner.get("hardware", []))),
             ("Dev Fee", f"{miner.get('dev_fee_pct', 0)}%"),
             ("License", miner.get("license", "—")),
-        ]):
-            lbl = Gtk.Label(label=f"{label}:")
+        ]
+        for i, (label, value) in enumerate(rows):
+            lbl = Gtk.Label(label=label)
             lbl.set_xalign(1)
             lbl.add_css_class("dim-label")
-            details.attach(lbl, 0, i, 1, 1)
+            grid.attach(lbl, 0, i, 1, 1)
             val = Gtk.Label(label=value)
             val.set_xalign(0)
-            details.attach(val, 1, i, 1, 1)
-        box.append(details)
+            grid.attach(val, 1, i, 1, 1)
+        box.append(grid)
+
+        # Separator
+        box.append(Gtk.Separator(margin_top=12, margin_bottom=12))
 
         # Action buttons
-        btn_box = Gtk.Box(spacing=12, margin_top=18)
-
-        install_btn = Gtk.Button(label="Install", css_classes=["suggested-action"])
-        install_btn.connect("clicked", self._on_install)
+        btn_box = Gtk.Box(spacing=12)
+        install_btn = Gtk.Button(label="Install", css_classes=["suggested-action", "pill"])
+        install_btn.set_size_request(120, -1)
+        install_btn.connect("clicked", self._on_install, miner["id"], toast_overlay)
         btn_box.append(install_btn)
-
-        remove_btn = Gtk.Button(label="Remove", css_classes=["destructive-action"])
-        remove_btn.connect("clicked", self._on_remove)
+        remove_btn = Gtk.Button(label="Remove", css_classes=["destructive-action", "pill"])
+        remove_btn.set_size_request(120, -1)
+        remove_btn.connect("clicked", self._on_remove, miner["id"], toast_overlay)
         btn_box.append(remove_btn)
-
         box.append(btn_box)
 
-        self.set_child(box)
+        # Source link
+        source = miner.get("source", "")
+        if source:
+            box.append(Gtk.Separator(margin_top=12, margin_bottom=4))
+            link_label = Gtk.Label(label=f"Source: {source}")
+            link_label.set_xalign(0)
+            link_label.add_css_class("dim-label")
+            link_label.add_css_class("caption")
+            box.append(link_label)
 
-    def _on_install(self, _btn):
-        miner_id = self.miner["id"]
-        result = send_daemon(f"store install miner {miner_id}")
-        self._show_toast(result)
-
-    def _on_remove(self, _btn):
-        miner_id = self.miner["id"]
-        result = send_daemon(f"store uninstall miner {miner_id}")
-        self._show_toast(result)
-
-    def _show_toast(self, msg: str):
-        toast = Adw.Toast(title=msg)
-        toast.set_timeout(3)
-        if hasattr(self, '_overlay'):
-            self._overlay.add_toast(toast)
-
-
-# ──── Pool Card ────
-
-class PoolCard(Adw.NavigationPage):
-    """Detail page for a single pool."""
-
-    def __init__(self, pool: dict, **kwargs):
-        super().__init__(**kwargs)
-        self.pool = pool
-        self.set_title(pool["name"])
-
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=24, margin_bottom=24, margin_start=24, margin_end=24)
-
-        title = Gtk.Label(label=pool["name"])
-        title.add_css_class("title-1")
-        title.set_xalign(0)
-        box.append(title)
-
-        coins = Gtk.Label(label=f"Coins: {', '.join(pool.get('coins', []))}")
-        coins.set_xalign(0)
-        box.append(coins)
-
-        url = Gtk.Label(label=f"Website: {pool.get('url', '—')}")
-        url.set_xalign(0)
-        box.append(url)
-
-        # Set pool button
-        btn_box = Gtk.Box(spacing=12, margin_top=18)
-        for coin in pool.get("coins", []):
-            btn = Gtk.Button(label=f"Set as {coin} pool", css_classes=["suggested-action"])
-            btn.connect("clicked", self._on_set_pool, coin)
-            btn_box.append(btn)
-        box.append(btn_box)
-
-        self.set_child(box)
-
-    def _on_set_pool(self, _btn, coin: str):
-        pool_name = self.pool["name"]
-        result = send_daemon(f"pool set {coin} {pool_name}")
-        toast = Adw.Toast(title=result)
-        toast.set_timeout(3)
-        self.add_toast(toast)
-
-
-# ──── Tab Pages ────
-
-class MinersPage(Adw.NavigationPage):
-    """Browse and install miners."""
-
-    def __init__(self, catalog: dict, **kwargs):
-        super().__init__(**kwargs)
-        self.set_title("Miners")
-
-        scroll = Gtk.ScrolledWindow()
-        flow = Gtk.FlowBox()
-        flow.set_selection_mode(Gtk.SelectionMode.NONE)
-        flow.set_column_spacing(12)
-        flow.set_row_spacing(12)
-        flow.set_margin_start(24)
-        flow.set_margin_end(24)
-        flow.set_margin_top(12)
-        flow.set_margin_bottom(12)
-
-        for miner in catalog.get("miners", []):
-            card = self._make_miner_card(miner)
-            flow.append(card)
-
-        scroll.set_child(flow)
-        self.set_child(scroll)
-
-    def _make_miner_card(self, miner: dict) -> Gtk.Box:
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        box.add_css_class("card")
-        box.set_size_request(220, -1)
-
-        name = Gtk.Label(label=miner["name"])
-        name.add_css_class("heading")
-        name.set_xalign(0)
-        box.append(name)
-
-        desc = Gtk.Label(label=miner["description"])
-        desc.set_xalign(0)
-        desc.set_wrap(True)
-        desc.add_css_class("dim-label")
-        box.append(desc)
-
-        info = Gtk.Label(label=f"v{miner.get('version', '?')} • {' • '.join(h.upper() for h in miner.get('hardware', []))}")
-        info.set_xalign(0)
-        info.add_css_class("caption")
-        box.append(info)
-
-        btn = Gtk.Button(label="View Details", css_classes=["flat"])
-        btn.connect("clicked", self._on_view, miner)
-        box.append(btn)
-
-        return box
-
-    def _on_view(self, _btn, miner: dict):
-        page = MinerCard(miner=miner)
-        self.get_ancestor(Adw.NavigationView).push(page)
-
-
-class WalletsPage(Adw.NavigationPage):
-    """Browse and install wallets."""
-
-    def __init__(self, catalog: dict, **kwargs):
-        super().__init__(**kwargs)
-        self.set_title("Wallets")
-
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=24, margin_start=24, margin_end=24)
-
-        for wallet in catalog.get("wallets", []):
-            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-            card.add_css_class("card")
-
-            name = Gtk.Label(label=wallet["name"])
-            name.add_css_class("heading")
-            name.set_xalign(0)
-            card.append(name)
-
-            desc = Gtk.Label(label=wallet["description"])
-            desc.set_xalign(0)
-            desc.set_wrap(True)
-            desc.add_css_class("dim-label")
-            card.append(desc)
-
-            btn_box = Gtk.Box(spacing=8)
-
-            gen_btn = Gtk.Button(label=f"Generate {wallet['coin'].title()} Wallet", css_classes=["suggested-action"])
-            gen_btn.connect("clicked", self._on_generate, wallet)
-            btn_box.append(gen_btn)
-
-            card.append(btn_box)
-            box.append(card)
-
-        box.append(Gtk.Label(label=""))
-        scroll = Gtk.ScrolledWindow()
         scroll.set_child(box)
         self.set_child(scroll)
 
-    def _on_generate(self, _btn, wallet: dict):
-        coin = wallet["coin"]
+    def _on_install(self, _btn, miner_id, overlay):
+        result = send_daemon(f"store install miner {miner_id}")
+        toast = Adw.Toast(title=result)
+        toast.set_timeout(3)
+        overlay.add_toast(toast)
+
+    def _on_remove(self, _btn, miner_id, overlay):
+        result = send_daemon(f"store uninstall miner {miner_id}")
+        toast = Adw.Toast(title=result)
+        toast.set_timeout(3)
+        overlay.add_toast(toast)
+
+
+class WalletDetail(Adw.NavigationPage):
+    def __init__(self, wallet: dict, toast_overlay: Adw.ToastOverlay, **kwargs):
+        super().__init__(**kwargs)
+        self.set_title(wallet["name"])
+        self.set_tag(f"wallet-{wallet['id']}")
+
+        scroll = Gtk.ScrolledWindow()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12,
+                       margin_top=24, margin_bottom=24, margin_start=32, margin_end=32)
+
+        header = Gtk.Box(spacing=16, margin_bottom=12)
+        if wallet.get("logo"):
+            header.append(logo_from_b64_large(wallet["logo"], 96))
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        name = Gtk.Label(label=wallet["name"])
+        name.add_css_class("title-1")
+        name.set_xalign(0)
+        title_box.append(name)
+        ver = Gtk.Label(label=f"v{wallet.get('version', '?')}")
+        ver.set_xalign(0)
+        ver.add_css_class("dim-label")
+        title_box.append(ver)
+        header.append(title_box)
+        header.set_valign(Gtk.Align.CENTER)
+        box.append(header)
+
+        desc = Gtk.Label(label=wallet["description"])
+        desc.set_xalign(0)
+        desc.set_wrap(True)
+        box.append(desc)
+
+        grid = Gtk.Grid(column_spacing=24, row_spacing=8, margin_top=12)
+        lbl = Gtk.Label(label="Coin")
+        lbl.set_xalign(1)
+        lbl.add_css_class("dim-label")
+        grid.attach(lbl, 0, 0, 1, 1)
+        val = Gtk.Label(label=wallet.get("coin", "—").title())
+        val.set_xalign(0)
+        grid.attach(val, 1, 0, 1, 1)
+        lbl2 = Gtk.Label(label="Type")
+        lbl2.set_xalign(1)
+        lbl2.add_css_class("dim-label")
+        grid.attach(lbl2, 0, 1, 1, 1)
+        val2 = Gtk.Label(label=wallet.get("type", "—").upper())
+        val2.set_xalign(0)
+        grid.attach(val2, 1, 1, 1, 1)
+        box.append(grid)
+
+        box.append(Gtk.Separator(margin_top=12, margin_bottom=12))
+
+        btn_box = Gtk.Box(spacing=12)
+        gen_btn = Gtk.Button(label=f"Generate {wallet['coin'].title()} Wallet",
+                             css_classes=["suggested-action", "pill"])
+        gen_btn.set_size_request(180, -1)
+        gen_btn.connect("clicked", self._on_generate, wallet["coin"], toast_overlay)
+        btn_box.append(gen_btn)
+        box.append(btn_box)
+
+        source = wallet.get("source", "")
+        if source:
+            box.append(Gtk.Separator(margin_top=12, margin_bottom=4))
+            link_label = Gtk.Label(label=f"Source: {source}")
+            link_label.set_xalign(0)
+            link_label.add_css_class("dim-label")
+            link_label.add_css_class("caption")
+            box.append(link_label)
+
+        scroll.set_child(box)
+        self.set_child(scroll)
+
+    def _on_generate(self, _btn, coin, overlay):
         result = send_daemon(f"wallet new {coin}")
         toast = Adw.Toast(title=result[:80])
         toast.set_timeout(5)
-        self.add_toast(toast)
+        overlay.add_toast(toast)
 
 
-class PoolsPage(Adw.NavigationPage):
-    """Browse and configure pools."""
-
-    def __init__(self, catalog: dict, **kwargs):
+class PoolDetail(Adw.NavigationPage):
+    def __init__(self, pool: dict, toast_overlay: Adw.ToastOverlay, **kwargs):
         super().__init__(**kwargs)
-        self.set_title("Pools")
-        self.catalog = catalog
+        self.set_title(pool["name"])
+        self.set_tag(f"pool-{pool['id']}")
 
+        scroll = Gtk.ScrolledWindow()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12,
+                       margin_top=24, margin_bottom=24, margin_start=32, margin_end=32)
+
+        header = Gtk.Box(spacing=16, margin_bottom=12)
+        if pool.get("logo"):
+            header.append(logo_from_b64_large(pool["logo"], 96))
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        name = Gtk.Label(label=pool["name"])
+        name.add_css_class("title-1")
+        name.set_xalign(0)
+        title_box.append(name)
+        header.append(title_box)
+        header.set_valign(Gtk.Align.CENTER)
+        box.append(header)
+
+        desc = Gtk.Label(label=pool.get("description", ""))
+        desc.set_xalign(0)
+        desc.set_wrap(True)
+        box.append(desc)
+
+        grid = Gtk.Grid(column_spacing=24, row_spacing=8, margin_top=12)
+        lbl = Gtk.Label(label="Coins")
+        lbl.set_xalign(1)
+        lbl.add_css_class("dim-label")
+        grid.attach(lbl, 0, 0, 1, 1)
+        val = Gtk.Label(label=", ".join(pool.get("coins", [])))
+        val.set_xalign(0)
+        grid.attach(val, 1, 0, 1, 1)
+        lbl2 = Gtk.Label(label="Website")
+        lbl2.set_xalign(1)
+        lbl2.add_css_class("dim-label")
+        grid.attach(lbl2, 0, 1, 1, 1)
+        val2 = Gtk.Label(label=pool.get("url", "—"))
+        val2.set_xalign(0)
+        grid.attach(val2, 1, 1, 1, 1)
+        # Ports
+        ports = pool.get("ports", {})
+        if ports:
+            lbl3 = Gtk.Label(label="Ports")
+            lbl3.set_xalign(1)
+            lbl3.add_css_class("dim-label")
+            grid.attach(lbl3, 0, 2, 1, 1)
+            port_str = "  •  ".join(f"{k}: {v}" for k, v in ports.items())
+            val3 = Gtk.Label(label=port_str)
+            val3.set_xalign(0)
+            grid.attach(val3, 1, 2, 1, 1)
+        box.append(grid)
+
+        box.append(Gtk.Separator(margin_top=12, margin_bottom=12))
+
+        btn_box = Gtk.Box(spacing=12)
+        for coin in pool.get("coins", []):
+            btn = Gtk.Button(label=f"Set as {coin.title()} pool",
+                             css_classes=["suggested-action", "pill"])
+            btn.set_size_request(160, -1)
+            btn.connect("clicked", self._on_set_pool, pool["name"], coin, toast_overlay)
+            btn_box.append(btn)
+        box.append(btn_box)
+
+        source = pool.get("url", "")
+        if source:
+            box.append(Gtk.Separator(margin_top=12, margin_bottom=4))
+            link_label = Gtk.Label(label=f"Website: {source}")
+            link_label.set_xalign(0)
+            link_label.add_css_class("dim-label")
+            link_label.add_css_class("caption")
+            box.append(link_label)
+
+        scroll.set_child(box)
+        self.set_child(scroll)
+
+    def _on_set_pool(self, _btn, pool_name, coin, overlay):
+        result = send_daemon(f"pool set {coin} {pool_name}")
+        toast = Adw.Toast(title=result)
+        toast.set_timeout(3)
+        overlay.add_toast(toast)
+
+
+# ──── Main Window ────
+
+class StoreWindow(Adw.ApplicationWindow):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_title("Strawberry Store")
+        self.set_default_size(800, 600)
+
+        self.catalog = load_catalog()
+        self.toast_overlay = Adw.ToastOverlay()
+
+        # Stack for tabs
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        self.stack.set_vexpand(True)
+
+        switcher = Gtk.StackSwitcher()
+        switcher.set_stack(self.stack)
+        switcher.set_halign(Gtk.Align.CENTER)
+        switcher.set_margin_top(6)
+        switcher.set_margin_bottom(6)
+
+        # Build pages
+        self._build_miners_tab()
+        self._build_wallets_tab()
+        self._build_pools_tab()
+
+        # Home page content
+        home_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        home_box.append(switcher)
+        home_box.append(self.stack)
+
+        # Navigation view for detail pages
+        self.nav = Adw.NavigationView()
+
+        home_page = Adw.NavigationPage(title="Strawberry Store")
+        home_page.set_child(home_box)
+        self._home_page = home_page
+        self.nav.push(home_page)
+
+        # ToolbarView wraps everything — header bar stays with window controls
+        toolbar_view = Adw.ToolbarView()
+        self.header = Adw.HeaderBar()
+
+        # Back button — hidden on home page, shown on detail pages
+        self.back_btn = Gtk.Button(icon_name="go-previous-symbolic")
+        self.back_btn.add_css_class("flat")
+        self.back_btn.connect("clicked", self._on_back)
+        self.header.pack_start(self.back_btn)
+        self.back_btn.set_visible(False)
+
+        toolbar_view.add_top_bar(self.header)
+        toolbar_view.set_content(self.nav)
+
+        self.toast_overlay.set_child(toolbar_view)
+        self.set_content(self.toast_overlay)
+
+        # Connect AFTER everything is built so back_btn exists
+        self.nav.connect("notify::visible-page", self._on_nav_changed)
+
+    def _toast(self, msg: str):
+        toast = Adw.Toast(title=msg)
+        toast.set_timeout(3)
+        self.toast_overlay.add_toast(toast)
+
+    def _on_back(self, _btn):
+        self.nav.pop()
+
+    def _on_nav_changed(self, nav, _pspec):
+        # Show back button when not on the first page
+        page = nav.get_visible_page()
+        self.back_btn.set_visible(page != self._home_page)
+
+    def _navigate_to(self, page: Adw.NavigationPage):
+        self.nav.push(page)
+
+    # ──── Miners ────
+
+    def _build_miners_tab(self):
         scroll = Gtk.ScrolledWindow()
         flow = Gtk.FlowBox()
         flow.set_selection_mode(Gtk.SelectionMode.NONE)
@@ -286,40 +409,179 @@ class PoolsPage(Adw.NavigationPage):
         flow.set_margin_top(12)
         flow.set_margin_bottom(12)
 
-        for pool in catalog.get("pools", []):
-            card = self._make_pool_card(pool)
+        for miner in self.catalog.get("miners", []):
+            card = self._miner_card(miner)
             flow.append(card)
 
         scroll.set_child(flow)
-        self.set_child(scroll)
+        self.stack.add_titled(scroll, "miners", "Miners")
 
-    def _make_pool_card(self, pool: dict) -> Gtk.Box:
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        box.add_css_class("card")
-        box.set_size_request(220, -1)
+    def _miner_card(self, m: dict) -> Gtk.Box:
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        card.add_css_class("card")
+        card.set_size_request(240, -1)
+        card.set_margin_top(8)
+        card.set_margin_bottom(8)
+        card.set_margin_start(8)
+        card.set_margin_end(8)
 
-        name = Gtk.Label(label=pool["name"])
+        # Logo + name row
+        top = Gtk.Box(spacing=10)
+        if m.get("logo"):
+            top.append(logo_from_b64(m["logo"], 48))
+        name = Gtk.Label(label=m["name"])
         name.add_css_class("heading")
         name.set_xalign(0)
-        box.append(name)
+        top.append(name)
+        card.append(top)
 
-        coins = Gtk.Label(label=f"Coins: {', '.join(pool.get('coins', []))}")
-        coins.set_xalign(0)
-        coins.add_css_class("caption")
-        box.append(coins)
+        # Description
+        desc = Gtk.Label(label=m["description"])
+        desc.set_xalign(0)
+        desc.set_wrap(True)
+        desc.add_css_class("dim-label")
+        card.append(desc)
 
-        btn = Gtk.Button(label="Configure", css_classes=["flat"])
-        btn.connect("clicked", self._on_configure, pool)
-        box.append(btn)
+        # Info line
+        hw = ", ".join(h.upper() for h in m.get("hardware", []))
+        fee = m.get("dev_fee_pct", 0)
+        info = Gtk.Label(label=f"v{m.get('version', '?')}  •  {hw}  •  fee {fee}%")
+        info.set_xalign(0)
+        info.add_css_class("caption")
+        card.append(info)
 
-        return box
+        # View button
+        btn = Gtk.Button(label="View Details", css_classes=["flat", "pill"])
+        btn.connect("clicked", self._on_view_miner, m)
+        card.append(btn)
 
-    def _on_configure(self, _btn, pool: dict):
-        page = PoolCard(pool=pool)
-        self.get_ancestor(Adw.NavigationView).push(page)
+        return card
 
+    def _on_view_miner(self, _btn, miner: dict):
+        page = MinerDetail(miner=miner, toast_overlay=self.toast_overlay)
+        self._navigate_to(page)
 
-# ──── Main Window ────
+    # ──── Wallets ────
+
+    def _build_wallets_tab(self):
+        scroll = Gtk.ScrolledWindow()
+        flow = Gtk.FlowBox()
+        flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        flow.set_column_spacing(12)
+        flow.set_row_spacing(12)
+        flow.set_margin_start(24)
+        flow.set_margin_end(24)
+        flow.set_margin_top(12)
+        flow.set_margin_bottom(12)
+
+        for w in self.catalog.get("wallets", []):
+            card = self._wallet_card(w)
+            flow.append(card)
+
+        scroll.set_child(flow)
+        self.stack.add_titled(scroll, "wallets", "Wallets")
+
+    def _wallet_card(self, w: dict) -> Gtk.Box:
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        card.add_css_class("card")
+        card.set_size_request(240, -1)
+        card.set_margin_top(8)
+        card.set_margin_bottom(8)
+        card.set_margin_start(8)
+        card.set_margin_end(8)
+
+        top = Gtk.Box(spacing=10)
+        if w.get("logo"):
+            top.append(logo_from_b64(w["logo"], 48))
+        name = Gtk.Label(label=w["name"])
+        name.add_css_class("heading")
+        name.set_xalign(0)
+        top.append(name)
+        card.append(top)
+
+        desc = Gtk.Label(label=w["description"])
+        desc.set_xalign(0)
+        desc.set_wrap(True)
+        desc.add_css_class("dim-label")
+        card.append(desc)
+
+        coin = w.get("coin", "—")
+        ver = w.get("version", "—")
+        info = Gtk.Label(label=f"Coin: {coin.title()}  •  v{ver}")
+        info.set_xalign(0)
+        info.add_css_class("caption")
+        card.append(info)
+
+        btn = Gtk.Button(label="View Details", css_classes=["flat", "pill"])
+        btn.connect("clicked", self._on_view_wallet, w)
+        card.append(btn)
+
+        return card
+
+    def _on_view_wallet(self, _btn, wallet: dict):
+        page = WalletDetail(wallet=wallet, toast_overlay=self.toast_overlay)
+        self._navigate_to(page)
+
+    # ──── Pools ────
+
+    def _build_pools_tab(self):
+        scroll = Gtk.ScrolledWindow()
+        flow = Gtk.FlowBox()
+        flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        flow.set_column_spacing(12)
+        flow.set_row_spacing(12)
+        flow.set_margin_start(24)
+        flow.set_margin_end(24)
+        flow.set_margin_top(12)
+        flow.set_margin_bottom(12)
+
+        for p in self.catalog.get("pools", []):
+            card = self._pool_card(p)
+            flow.append(card)
+
+        scroll.set_child(flow)
+        self.stack.add_titled(scroll, "pools", "Pools")
+
+    def _pool_card(self, p: dict) -> Gtk.Box:
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        card.add_css_class("card")
+        card.set_size_request(240, -1)
+        card.set_margin_top(8)
+        card.set_margin_bottom(8)
+        card.set_margin_start(8)
+        card.set_margin_end(8)
+
+        top = Gtk.Box(spacing=10)
+        if p.get("logo"):
+            top.append(logo_from_b64(p["logo"], 48))
+        name = Gtk.Label(label=p["name"])
+        name.add_css_class("heading")
+        name.set_xalign(0)
+        top.append(name)
+        card.append(top)
+
+        desc = Gtk.Label(label=p.get("description", ""))
+        desc.set_xalign(0)
+        desc.set_wrap(True)
+        desc.add_css_class("dim-label")
+        card.append(desc)
+
+        coins = ", ".join(p.get("coins", []))
+        info = Gtk.Label(label=f"Coins: {coins}")
+        info.set_xalign(0)
+        info.add_css_class("caption")
+        card.append(info)
+
+        btn = Gtk.Button(label="View Details", css_classes=["flat", "pill"])
+        btn.connect("clicked", self._on_view_pool, p)
+        card.append(btn)
+
+        return card
+
+    def _on_view_pool(self, _btn, pool: dict):
+        page = PoolDetail(pool=pool, toast_overlay=self.toast_overlay)
+        self._navigate_to(page)
+
 
 class StrawberryStore(Adw.Application):
     def __init__(self):
@@ -327,39 +589,7 @@ class StrawberryStore(Adw.Application):
         self.connect("activate", self._on_activate)
 
     def _on_activate(self, app):
-        self.catalog = load_catalog()
-
-        # Main navigation
-        nav = Adw.NavigationView()
-
-        # Header bar with title
-        header = Adw.HeaderBar()
-        header.set_title_widget(Gtk.Label(label="Strawberry Store"))
-
-        # Tab view
-        tab_view = Adw.TabView()
-        tab_bar = Adw.TabBar()
-        tab_bar.set_view(tab_view)
-
-        # Create pages
-        miners_page = MinersPage(catalog=self.catalog)
-        wallets_page = WalletsPage(catalog=self.catalog)
-        pools_page = PoolsPage(catalog=self.catalog)
-
-        tab_view.append(miners_page).set_title("Miners")
-        tab_view.append(wallets_page).set_title("Wallets")
-        tab_view.append(pools_page).set_title("Pools")
-
-        # Main layout
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        main_box.append(header)
-        main_box.append(tab_bar)
-        main_box.append(tab_view)
-
-        win = Adw.ApplicationWindow(application=app)
-        win.set_title("Strawberry Store")
-        win.set_default_size(800, 600)
-        win.set_content(main_box)
+        win = StoreWindow(application=app)
         win.present()
 
 

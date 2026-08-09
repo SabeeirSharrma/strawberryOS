@@ -6,6 +6,9 @@
 [general]
 telemetry = false          # Hardcoded off, not just a default
 log_level = "info"         # debug | info | warn | error
+catalog_url = "https://sabeeirsharrma.github.io/strawberryOS/store/store-catalog.json"
+catalog_cache = "/var/lib/strawberry/store-catalog.json"
+catalog_refresh_secs = 3600  # 1 hour
 
 [mining]
 default_algo = ""

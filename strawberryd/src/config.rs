@@ -23,6 +23,24 @@ pub struct GlobalConfig {
 pub struct GeneralConfig {
     pub telemetry: bool,
     pub log_level: String,
+    #[serde(default = "default_catalog_url")]
+    pub catalog_url: String,
+    #[serde(default = "default_catalog_cache")]
+    pub catalog_cache: PathBuf,
+    #[serde(default = "default_catalog_interval")]
+    pub catalog_refresh_secs: u64,
+}
+
+fn default_catalog_url() -> String {
+    "https://sabeeirsharrma.github.io/strawberryOS/store/store-catalog.json".to_string()
+}
+
+fn default_catalog_cache() -> PathBuf {
+    PathBuf::from("/var/lib/strawberry/store-catalog.json")
+}
+
+fn default_catalog_interval() -> u64 {
+    3600 // 1 hour
 }
 
 impl Default for GeneralConfig {
@@ -30,6 +48,9 @@ impl Default for GeneralConfig {
         Self {
             telemetry: false,
             log_level: "info".to_string(),
+            catalog_url: default_catalog_url(),
+            catalog_cache: default_catalog_cache(),
+            catalog_refresh_secs: default_catalog_interval(),
         }
     }
 }

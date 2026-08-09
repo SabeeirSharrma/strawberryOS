@@ -1,3 +1,4 @@
+mod catalog;
 mod config;
 mod daemon;
 mod pool;
@@ -39,6 +40,19 @@ async fn main() -> anyhow::Result<()> {
             info!("Starting strawberryd v{}", env!("CARGO_PKG_VERSION"));
             let cfg = config::load()?;
             info!("Config loaded from {}", config::config_path().display());
+
+            // Fetch catalog on startup
+            let catalog_cfg = cfg.clone();
+            tokio::spawn(async move {
+                crate::catalog::fetch_and_cache(&catalog_cfg).await;
+            });
+
+            // Start background catalog refresh
+            let refresh_cfg = cfg.clone();
+            tokio::spawn(async move {
+                crate::catalog::background_refresh(refresh_cfg).await;
+            });
+
             daemon::run(cfg).await?;
         }
         Some(Commands::Config) => {
