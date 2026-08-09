@@ -64,10 +64,29 @@ def logo_from_b64_large(b64: str, size: int = 96) -> Gtk.Picture:
     return logo_from_b64(b64, size)
 
 
+def get_installed_miners() -> set:
+    """Query daemon for installed miners."""
+    result = send_daemon("miner list")
+    installed = set()
+    for line in result.split("\n"):
+        line = line.strip()
+        if line.startswith("—"):
+            continue
+        # Lines like "  XMRig — run 'xmrig' to launch"
+        if "run '" in line:
+            cmd = line.split("run '")[1].split("'")[0] if "run '" in line else ""
+            if cmd:
+                installed.add(cmd)
+    # Also check if daemon returns "none installed"
+    if "none installed" in result:
+        return set()
+    return installed
+
+
 # ──── Detail Pages ────
 
 class MinerDetail(Adw.NavigationPage):
-    def __init__(self, miner: dict, toast_overlay: Adw.ToastOverlay, **kwargs):
+    def __init__(self, miner: dict, toast_overlay: Adw.ToastOverlay, installed: set, **kwargs):
         super().__init__(**kwargs)
         self.set_title(miner["name"])
         self.set_tag(f"miner-{miner['id']}")
@@ -92,6 +111,22 @@ class MinerDetail(Adw.NavigationPage):
         header.append(title_box)
         header.set_valign(Gtk.Align.CENTER)
         box.append(header)
+
+        # Installed status
+        is_installed = miner["id"] in installed
+        if is_installed:
+            status_box = Gtk.Box(spacing=8, margin_bottom=8)
+            badge = Gtk.Label(label="✓ Installed")
+            badge.add_css_class("success")
+            badge.add_css_class("caption")
+            status_box.append(badge)
+            cmd = miner.get("wrapper_name", miner["id"])
+            cmd_label = Gtk.Label(label=f"Run '{cmd}' in terminal to launch")
+            cmd_label.set_xalign(0)
+            cmd_label.add_css_class("dim-label")
+            cmd_label.add_css_class("caption")
+            status_box.append(cmd_label)
+            box.append(status_box)
 
         # Description
         desc = Gtk.Label(label=miner["description"])
@@ -122,10 +157,17 @@ class MinerDetail(Adw.NavigationPage):
 
         # Action buttons
         btn_box = Gtk.Box(spacing=12)
-        install_btn = Gtk.Button(label="Install", css_classes=["suggested-action", "pill"])
-        install_btn.set_size_request(120, -1)
-        install_btn.connect("clicked", self._on_install, miner["id"], toast_overlay)
-        btn_box.append(install_btn)
+        if is_installed:
+            launch_btn = Gtk.Button(label="Launch", css_classes=["suggested-action", "pill"])
+            launch_btn.set_size_request(120, -1)
+            cmd = miner.get("wrapper_name", miner["id"])
+            launch_btn.connect("clicked", self._on_launch, cmd, toast_overlay)
+            btn_box.append(launch_btn)
+        else:
+            install_btn = Gtk.Button(label="Install", css_classes=["suggested-action", "pill"])
+            install_btn.set_size_request(120, -1)
+            install_btn.connect("clicked", self._on_install, miner["id"], toast_overlay)
+            btn_box.append(install_btn)
         remove_btn = Gtk.Button(label="Remove", css_classes=["destructive-action", "pill"])
         remove_btn.set_size_request(120, -1)
         remove_btn.connect("clicked", self._on_remove, miner["id"], toast_overlay)
@@ -148,7 +190,12 @@ class MinerDetail(Adw.NavigationPage):
     def _on_install(self, _btn, miner_id, overlay):
         result = send_daemon(f"store install miner {miner_id}")
         toast = Adw.Toast(title=result)
-        toast.set_timeout(3)
+        toast.set_timeout(5)
+        overlay.add_toast(toast)
+
+    def _on_launch(self, _btn, cmd, overlay):
+        toast = Adw.Toast(title=f"Run '{cmd}' in terminal to launch")
+        toast.set_timeout(5)
         overlay.add_toast(toast)
 
     def _on_remove(self, _btn, miner_id, overlay):
@@ -409,6 +456,8 @@ class StoreWindow(Adw.ApplicationWindow):
         flow.set_margin_top(12)
         flow.set_margin_bottom(12)
 
+        self._installed_miners = get_installed_miners()
+
         for miner in self.catalog.get("miners", []):
             card = self._miner_card(miner)
             flow.append(card)
@@ -433,6 +482,14 @@ class StoreWindow(Adw.ApplicationWindow):
         name.add_css_class("heading")
         name.set_xalign(0)
         top.append(name)
+
+        # Installed badge
+        if m["id"] in self._installed_miners:
+            badge = Gtk.Label(label="✓")
+            badge.add_css_class("success")
+            badge.add_css_class("caption")
+            top.append(badge)
+
         card.append(top)
 
         # Description
@@ -451,14 +508,18 @@ class StoreWindow(Adw.ApplicationWindow):
         card.append(info)
 
         # View button
-        btn = Gtk.Button(label="View Details", css_classes=["flat", "pill"])
+        if m["id"] in self._installed_miners:
+            cmd = m.get("wrapper_name", m["id"])
+            btn = Gtk.Button(label=f"Run '{cmd}'", css_classes=["flat", "pill"])
+        else:
+            btn = Gtk.Button(label="View Details", css_classes=["flat", "pill"])
         btn.connect("clicked", self._on_view_miner, m)
         card.append(btn)
 
         return card
 
     def _on_view_miner(self, _btn, miner: dict):
-        page = MinerDetail(miner=miner, toast_overlay=self.toast_overlay)
+        page = MinerDetail(miner=miner, toast_overlay=self.toast_overlay, installed=self._installed_miners)
         self._navigate_to(page)
 
     # ──── Wallets ────

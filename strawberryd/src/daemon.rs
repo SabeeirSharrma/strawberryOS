@@ -1,5 +1,6 @@
 use crate::catalog;
 use crate::config::{self, GlobalConfig};
+use crate::miner;
 use crate::pool;
 use crate::wallet::WalletManager;
 use std::sync::Arc;
@@ -87,26 +88,21 @@ async fn process_command(cmd: &str, config: &GlobalConfig) -> String {
         ),
         ["config", "show"] => format!("{:#?}", config),
         ["miner", "list"] => {
-            // Check for installed miners in common paths
-            let miner_paths = ["/usr/bin", "/usr/local/bin"];
-            let mut found = Vec::new();
-            for dir in &miner_paths {
-                if let Ok(entries) = std::fs::read_dir(dir) {
-                    for entry in entries.flatten() {
-                        let name = entry.file_name().to_string_lossy().to_string();
-                        if name.starts_with("xmrig") || name.starts_with("t-rex")
-                            || name.starts_with("lolminer") || name.starts_with("gminer")
-                            || name.starts_with("srbminer") || name.contains("cpuminer")
-                        {
-                            found.push(name);
-                        }
-                    }
-                }
-            }
-            if found.is_empty() {
+            let installed = miner::installed_miners();
+            if installed.is_empty() {
                 "miners: (none installed)\nTip: use 'strawberry-cli store install <miner>' or the Store app.".to_string()
             } else {
-                format!("installed miners:\n{}", found.iter().map(|m| format!("  {}", m)).collect::<Vec<_>>().join("\n"))
+                let catalog = catalog::load_cached(config);
+                let miners_arr = catalog.get("miners").and_then(|m| m.as_array());
+                let mut out = String::from("Installed miners:\n");
+                for id in &installed {
+                    let name = miners_arr
+                        .and_then(|arr| arr.iter().find(|m| m.get("id").and_then(|i| i.as_str()) == Some(id.as_str())))
+                        .and_then(|m| m.get("name").and_then(|n| n.as_str()))
+                        .unwrap_or(id);
+                    out.push_str(&format!("  {} — run '{}' to launch\n", name, id));
+                }
+                out
             }
         }
         ["wallet", "list"] => {
@@ -251,12 +247,22 @@ async fn process_command(cmd: &str, config: &GlobalConfig) -> String {
             }
         }
         ["store", "install", "miner", id] => {
-            // In a real implementation, this would download and install the miner binary
-            // For now, acknowledge the request
-            format!("Installing miner '{}'... (placeholder — download system not yet implemented)", id)
+            if miner::is_installed(id) {
+                let sources = miner::miner_sources();
+                let src = sources.iter().find(|s| s.id == *id).unwrap();
+                format!("{} is already installed. Run '{}' to launch.", src.name, src.wrapper_name)
+            } else {
+                match miner::install_miner(id, config).await {
+                    Ok(msg) => msg,
+                    Err(e) => format!("Install failed: {}", e),
+                }
+            }
         }
         ["store", "uninstall", "miner", id] => {
-            format!("Uninstalling miner '{}'... (placeholder — uninstall system not yet implemented)", id)
+            match miner::uninstall_miner(id) {
+                Ok(msg) => msg,
+                Err(e) => format!("Uninstall failed: {}", e),
+            }
         }
         ["store", "list", "miners"] => {
             let catalog = catalog::load_cached(config);

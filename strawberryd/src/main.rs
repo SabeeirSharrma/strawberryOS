@@ -1,6 +1,7 @@
 mod catalog;
 mod config;
 mod daemon;
+mod miner;
 mod pool;
 mod wallet;
 
